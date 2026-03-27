@@ -37,7 +37,11 @@ export function startCredentialProxy(
   // Prefer explicit OAuth token; otherwise treat API_KEY/AUTH_TOKEN as key mode.
   const apiKey = secrets.ANTHROPIC_API_KEY || secrets.ANTHROPIC_AUTH_TOKEN;
   const oauthToken = secrets.CLAUDE_CODE_OAUTH_TOKEN;
-  const authMode: AuthMode = oauthToken ? 'oauth' : apiKey ? 'api-key' : 'oauth';
+  const authMode: AuthMode = oauthToken
+    ? 'oauth'
+    : apiKey
+      ? 'api-key'
+      : 'oauth';
 
   const upstreamUrl = new URL(
     secrets.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',

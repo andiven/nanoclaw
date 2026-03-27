@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)",
+      "Bash(curl:*)",
+      "Bash(docker info:*)",
+      "Bash(start:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx tsx:*)",
+      "Bash(./container/build.sh:*)",
+      "Bash(cmd:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(sqlite3:*)",
+      "Bash(.env:*)",
+      "Bash(tasklist:*)",
+      "Bash(tail:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker run:*)",
+      "Bash(./build.sh:*)",
+      "WebFetch(domain:docs.z.ai)",
+      "Bash(onecli status:*)",
+      "Bash(Get-Process:*)"
+    ]
+  }
+}

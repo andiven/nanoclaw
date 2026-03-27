@@ -255,8 +255,7 @@ function buildContainerArgs(
     envConfig.ANTHROPIC_DEFAULT_HAIKU_MODEL;
   if (sonnetModel)
     args.push('-e', `ANTHROPIC_DEFAULT_SONNET_MODEL=${sonnetModel}`);
-  if (opusModel)
-    args.push('-e', `ANTHROPIC_DEFAULT_OPUS_MODEL=${opusModel}`);
+  if (opusModel) args.push('-e', `ANTHROPIC_DEFAULT_OPUS_MODEL=${opusModel}`);
   if (haikuModel)
     args.push('-e', `ANTHROPIC_DEFAULT_HAIKU_MODEL=${haikuModel}`);
 
