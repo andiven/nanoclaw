@@ -16,6 +16,7 @@ import {
   IDLE_TIMEOUT,
   TIMEZONE,
 } from './config.js';
+import { readEnvFile } from './env.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
 import {
@@ -236,6 +237,28 @@ function buildContainerArgs(
     '-e',
     `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
   );
+
+  // Pass model mapping variables for Claude SDK (Z.ai / GLM compatibility)
+  const envConfig = readEnvFile([
+    'ANTHROPIC_DEFAULT_SONNET_MODEL',
+    'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  ]);
+  const sonnetModel =
+    process.env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+    envConfig.ANTHROPIC_DEFAULT_SONNET_MODEL;
+  const opusModel =
+    process.env.ANTHROPIC_DEFAULT_OPUS_MODEL ||
+    envConfig.ANTHROPIC_DEFAULT_OPUS_MODEL;
+  const haikuModel =
+    process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+    envConfig.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+  if (sonnetModel)
+    args.push('-e', `ANTHROPIC_DEFAULT_SONNET_MODEL=${sonnetModel}`);
+  if (opusModel)
+    args.push('-e', `ANTHROPIC_DEFAULT_OPUS_MODEL=${opusModel}`);
+  if (haikuModel)
+    args.push('-e', `ANTHROPIC_DEFAULT_HAIKU_MODEL=${haikuModel}`);
 
   // Mirror the host's auth method with a placeholder value.
   // API key mode: SDK sends x-api-key, proxy replaces with real key.

@@ -49,12 +49,14 @@ describe('credential-proxy', () => {
   let proxyPort: number;
   let upstreamPort: number;
   let lastUpstreamHeaders: http.IncomingHttpHeaders;
+  let lastUpstreamPath = '';
 
   beforeEach(async () => {
     lastUpstreamHeaders = {};
 
     upstreamServer = http.createServer((req, res) => {
       lastUpstreamHeaders = { ...req.headers };
+      lastUpstreamPath = req.url || '';
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
     });
@@ -95,6 +97,25 @@ describe('credential-proxy', () => {
     );
 
     expect(lastUpstreamHeaders['x-api-key']).toBe('sk-ant-real-key');
+  });
+
+  it('AUTH_TOKEN uses API-key mode for Anthropic-compatible providers', async () => {
+    proxyPort = await startProxy({ ANTHROPIC_AUTH_TOKEN: 'zai-real-token' });
+
+    await makeRequest(
+      proxyPort,
+      {
+        method: 'POST',
+        path: '/v1/messages',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'placeholder',
+        },
+      },
+      '{}',
+    );
+
+    expect(lastUpstreamHeaders['x-api-key']).toBe('zai-real-token');
   });
 
   it('OAuth mode replaces Authorization when container sends one', async () => {
@@ -166,6 +187,27 @@ describe('credential-proxy', () => {
     // custom keep-alive and transfer-encoding must not be forwarded.
     expect(lastUpstreamHeaders['keep-alive']).toBeUndefined();
     expect(lastUpstreamHeaders['transfer-encoding']).toBeUndefined();
+  });
+
+  it('preserves upstream base path prefix from ANTHROPIC_BASE_URL', async () => {
+    Object.assign(mockEnv, {
+      ANTHROPIC_AUTH_TOKEN: 'zai-real-token',
+      ANTHROPIC_BASE_URL: `http://127.0.0.1:${upstreamPort}/api/anthropic`,
+    });
+    proxyServer = await startCredentialProxy(0);
+    proxyPort = (proxyServer.address() as AddressInfo).port;
+
+    await makeRequest(
+      proxyPort,
+      {
+        method: 'POST',
+        path: '/v1/messages',
+        headers: { 'content-type': 'application/json' },
+      },
+      '{}',
+    );
+
+    expect(lastUpstreamPath).toBe('/api/anthropic/v1/messages');
   });
 
   it('returns 502 when upstream is unreachable', async () => {
