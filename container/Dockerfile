@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies for skills
-RUN pip install --break-system-packages pypdf pdfplumber openpyxl pdf2image pytesseract lxml defusedxml Pillow validators python-docx
+RUN pip install --break-system-packages pypdf pdfplumber openpyxl pdf2image pytesseract lxml defusedxml Pillow validators python-docx playwright imageio numpy
 
 # Set Chromium path for agent-browser
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
