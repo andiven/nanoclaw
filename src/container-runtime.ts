@@ -12,7 +12,10 @@ import { logger } from './logger.js';
 export const CONTAINER_RUNTIME_BIN = 'container';
 
 /** Hostname containers use to reach the host machine. */
-export const CONTAINER_HOST_GATEWAY = 'host.docker.internal';
+export const CONTAINER_HOST_GATEWAY =
+  CONTAINER_RUNTIME_BIN === 'container'
+    ? '192.168.64.1'
+    : 'host.docker.internal';
 
 /**
  * Address the credential proxy binds to.
@@ -24,6 +27,26 @@ export const PROXY_BIND_HOST =
   process.env.CREDENTIAL_PROXY_HOST || detectProxyBindHost();
 
 function detectProxyBindHost(): string {
+  // Apple Container on macOS: bind to bridge IP so containers can reach proxy
+  if (CONTAINER_RUNTIME_BIN === 'container') {
+    // Find the bridge100 interface (Apple Container's bridge)
+    const ifaces = os.networkInterfaces();
+    for (const name in ifaces) {
+      if (name.startsWith('bridge')) {
+        const iface = ifaces[name];
+        if (iface) {
+          const ipv4 = iface.find(
+            (a) => a.family === 'IPv4' && a.address.startsWith('192.168.'),
+          );
+          if (ipv4) return ipv4.address;
+        }
+      }
+    }
+    // Fallback to 0.0.0.0 if bridge not found
+    return '0.0.0.0';
+  }
+
+  // Docker Desktop (macOS): 127.0.0.1 — the VM routes host.docker.internal to loopback
   if (os.platform() === 'darwin') return '127.0.0.1';
 
   // WSL uses Docker Desktop (same VM routing as macOS) — loopback is correct.
@@ -42,16 +65,23 @@ function detectProxyBindHost(): string {
 
 /** CLI args needed for the container to resolve the host gateway. */
 export function hostGatewayArgs(): string[] {
-  // On Linux, host.docker.internal isn't built-in — add it explicitly
-  if (os.platform() === 'linux') {
+  // Docker on Linux needs explicit host mapping
+  // Apple Container uses direct IP address in CONTAINER_HOST_GATEWAY
+  if (os.platform() === 'linux' && CONTAINER_RUNTIME_BIN !== 'container') {
     return ['--add-host=host.docker.internal:host-gateway'];
   }
   return [];
 }
 
 /** Returns CLI args for a readonly bind mount. */
-export function readonlyMountArgs(hostPath: string, containerPath: string): string[] {
-  return ['--mount', `type=bind,source=${hostPath},target=${containerPath},readonly`];
+export function readonlyMountArgs(
+  hostPath: string,
+  containerPath: string,
+): string[] {
+  return [
+    '--mount',
+    `type=bind,source=${hostPath},target=${containerPath},readonly`,
+  ];
 }
 
 /** Returns the shell command to stop a container by name. */
@@ -67,7 +97,10 @@ export function ensureContainerRuntimeRunning(): void {
   } catch {
     logger.info('Starting container runtime...');
     try {
-      execSync(`${CONTAINER_RUNTIME_BIN} system start`, { stdio: 'pipe', timeout: 30000 });
+      execSync(`${CONTAINER_RUNTIME_BIN} system start`, {
+        stdio: 'pipe',
+        timeout: 30000,
+      });
       logger.info('Container runtime started');
     } catch (err) {
       logger.error({ err }, 'Failed to start container runtime');
@@ -107,17 +140,26 @@ export function cleanupOrphans(): void {
       stdio: ['pipe', 'pipe', 'pipe'],
       encoding: 'utf-8',
     });
-    const containers: { status: string; configuration: { id: string } }[] = JSON.parse(output || '[]');
+    const containers: { status: string; configuration: { id: string } }[] =
+      JSON.parse(output || '[]');
     const orphans = containers
-      .filter((c) => c.status === 'running' && c.configuration.id.startsWith('nanoclaw-'))
+      .filter(
+        (c) =>
+          c.status === 'running' && c.configuration.id.startsWith('nanoclaw-'),
+      )
       .map((c) => c.configuration.id);
     for (const name of orphans) {
       try {
         execSync(stopContainer(name), { stdio: 'pipe' });
-      } catch { /* already stopped */ }
+      } catch {
+        /* already stopped */
+      }
     }
     if (orphans.length > 0) {
-      logger.info({ count: orphans.length, names: orphans }, 'Stopped orphaned containers');
+      logger.info(
+        { count: orphans.length, names: orphans },
+        'Stopped orphaned containers',
+      );
     }
   } catch (err) {
     logger.warn({ err }, 'Failed to clean up orphaned containers');
